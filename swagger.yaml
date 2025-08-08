@@ -247,7 +247,7 @@ paths:
                     type: string
                     example: User invitation created successfully
                   user:
-                    $ref: '#/components/schemas/PublicUser'
+                    $ref: '#/components/schemas/User'
                   claimLink:
                     type: string
                     description: URL for user to claim their account
@@ -364,7 +364,7 @@ paths:
                     type: string
                     example: Account claimed successfully
                   user:
-                    $ref: '#/components/schemas/PublicUser'
+                    $ref: '#/components/schemas/User'
                   autoLogin:
                     type: object
                     properties:
@@ -456,7 +456,7 @@ paths:
                     type: boolean
                     example: true
                   user:
-                    $ref: '#/components/schemas/PublicUser'
+                    $ref: '#/components/schemas/User'
                   expiresAt:
                     type: string
                     format: date-time
@@ -647,7 +647,7 @@ paths:
                     type: string
                     example: User created successfully
                   user:
-                    $ref: '#/components/schemas/PublicUser'
+                    $ref: '#/components/schemas/User'
         '400':
           description: Validation error or user already exists
           content:
@@ -757,7 +757,7 @@ paths:
                         type: boolean
                         example: true
                       user:
-                        $ref: '#/components/schemas/PublicUser'
+                        $ref: '#/components/schemas/User'
                       expiresAt:
                         type: string
                         format: date-time
@@ -1354,7 +1354,7 @@ paths:
                 type: object
                 properties:
                   user:
-                    $ref: '#/components/schemas/PublicUser'
+                    $ref: '#/components/schemas/User'
                   invitation:
                     type: object
                     properties:
@@ -1406,7 +1406,7 @@ paths:
                 type: object
                 properties:
                   user:
-                    $ref: '#/components/schemas/PublicUser'
+                    $ref: '#/components/schemas/User'
                   invitation:
                     type: object
                     properties:
