@@ -12,6 +12,189 @@ components:
       type: apiKey
       in: cookie
       name: next-auth.session-token
+      schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          nullable: true
+        password:
+          type: string
+          nullable: true
+        role:
+          type: string
+          enum: [USER, ADMIN]
+        emailVerified:
+          type: string
+          format: date-time
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        claimToken:
+          type: string
+          nullable: true
+        claimTokenExpires:
+          type: string
+          format: date-time
+          nullable: true
+        isClaimed:
+          type: boolean
+        submissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormSubmission'
+
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: integer
+        type:
+          type: string
+        provider:
+          type: string
+        providerAccountId:
+          type: string
+        refresh_token:
+          type: string
+          nullable: true
+        access_token:
+          type: string
+          nullable: true
+        expires_at:
+          type: integer
+          nullable: true
+        token_type:
+          type: string
+          nullable: true
+        scope:
+          type: string
+          nullable: true
+        id_token:
+          type: string
+          nullable: true
+        session_state:
+          type: string
+          nullable: true
+
+    DynamicForm:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        description:
+          type: string
+        formData:
+          type: object
+          description: JSON structure describing form fields
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        submissions:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormSubmission'
+
+    FormSubmission:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        formId:
+          type: string
+          format: uuid
+        userId:
+          type: integer
+        data:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        form:
+          $ref: '#/components/schemas/DynamicForm'
+        user:
+          $ref: '#/components/schemas/User'
+
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+        sessionToken:
+          type: string
+        userId:
+          type: integer
+        expires:
+          type: string
+          format: date-time
+
+    VerificationToken:
+      type: object
+      properties:
+        identifier:
+          type: string
+        token:
+          type: string
+        expires:
+          type: string
+          format: date-time
+
+    TempSession:
+      type: object
+      properties:
+        id:
+          type: integer
+        token:
+          type: string
+        userId:
+          type: integer
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    RequestedTask:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        status:
+          type: string
+          example: 'pending'
+        taskPath:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 paths:
   /api/admin/invite:
     post:
@@ -1798,4 +1981,3 @@ paths:
           description: Forbidden - admin access required
         '500':
           description: Internal server error
-tags: []
