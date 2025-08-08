@@ -12,7 +12,7 @@ components:
       type: apiKey
       in: cookie
       name: next-auth.session-token
-      schemas:
+  schemas:
     User:
       type: object
       properties:
