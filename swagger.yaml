@@ -1,0 +1,1801 @@
+openapi: 3.0.0
+info:
+  title: Practice Flow Portal API
+  version: 1.0.0
+  description: API documentation for Practice Flow Portal
+servers:
+  - url: https://maminike.github.io/
+    description: Production server
+components:
+  securitySchemes:
+    SessionAuth:
+      type: apiKey
+      in: cookie
+      name: next-auth.session-token
+paths:
+  /api/admin/invite:
+    post:
+      summary: Invite a new user (Admin only)
+      description: Create user invitation with claim token and optional task
+        assignment. Admin access required.
+      tags:
+        - Admin
+        - Invitations
+      security:
+        - SessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                name:
+                  type: string
+                  description: Optional user name
+                  example: Andrzej Duda
+                email:
+                  type: string
+                  format: email
+                  description: User email address
+                  example: Andrzej.Duda@example.com
+                role:
+                  type: string
+                  enum:
+                    - USER
+                    - ADMIN
+                  default: USER
+                  description: User role
+                target:
+                  type: string
+                  description: Optional task path to assign (will be URL decoded)
+                  example: forms/contact-form
+      responses:
+        '200':
+          description: User invitation created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User invitation created successfully
+                  user:
+                    $ref: '#/components/schemas/PublicUser'
+                  claimLink:
+                    type: string
+                    description: URL for user to claim their account
+                    example: http://localhost:3000/auth/claim?token=abc123&target=forms%2Fcontact
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    description: Claim token expiration time
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  details:
+                    type: array
+        '403':
+          description: Unauthorized - admin access required
+        '500':
+          description: Internal server error
+  /api/admin/users:
+    get:
+      summary: Get all users (Admin only)
+      description:
+        Retrieve paginated list of all users with their details and task
+        counts. Admin access required.
+      tags:
+        - Admin
+        - Users
+      security:
+        - SessionAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Number of users per page
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/User'
+                        - type: object
+                          properties:
+                            requestedTasks:
+                              type: array
+                              items:
+                                $ref: '#/components/schemas/RequestedTask'
+                            _count:
+                              type: object
+                              properties:
+                                requestedTasks:
+                                  type: integer
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - admin access required
+        '500':
+          description: Internal server error
+  /api/auth/claim:
+    post:
+      summary: Claim invited user account
+      description: Complete account setup by claiming an invitation with a password
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - password
+              properties:
+                token:
+                  type: string
+                  description: Claim token received in invitation
+                  example: abc123def456...
+                password:
+                  type: string
+                  minLength: 6
+                  description: Password for the account
+                  example: newPassword123
+      responses:
+        '200':
+          description: Account claimed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Account claimed successfully
+                  user:
+                    $ref: '#/components/schemas/PublicUser'
+                  autoLogin:
+                    type: object
+                    properties:
+                      email:
+                        type: string
+                      password:
+                        type: string
+                    description: Credentials for automatic login
+        '400':
+          description: Invalid or expired claim token, or validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid or expired claim token
+                  details:
+                    type: array
+                    description: Validation errors (if applicable)
+        '500':
+          description: Internal server error
+    get:
+      summary: Validate claim token
+      description: Check if a claim token is valid and return associated user info
+      tags:
+        - Authentication
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema:
+            type: string
+          description: Claim token to validate
+      responses:
+        '200':
+          description: Token is valid
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                    example: true
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: integer
+                      name:
+                        type: string
+                      email:
+                        type: string
+                      role:
+                        type: string
+                      claimTokenExpires:
+                        type: string
+                        format: date-time
+        '400':
+          description: Token required or invalid/expired token
+        '500':
+          description: Internal server error
+  /api/auth/continue:
+    get:
+      summary: Continue with temporary session
+      description:
+        Allow unclaimed users to proceed with a temporary 1-hour session
+        without claiming account
+      tags:
+        - Authentication
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema:
+            type: string
+          description: Valid claim token
+      responses:
+        '200':
+          description: Temporary session created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  user:
+                    $ref: '#/components/schemas/PublicUser'
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    description: Session expiration time (1 hour from creation)
+                  redirectTo:
+                    type: string
+                    example: /dashboard
+          headers:
+            Set-Cookie:
+              description: HTTP-only session cookie
+              schema:
+                type: string
+        '400':
+          description: Token required or invalid/expired token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    enum:
+                      - Token required
+                      - Invalid or expired token
+        '403':
+          description: Admin users cannot use token authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Admin users must claim their account first
+        '500':
+          description: Internal server error
+  /api/auth/get-claim-token:
+    post:
+      summary: Get claim token for temporary session
+      description: Retrieve the original claim token for users in temporary sessions
+      tags:
+        - Authentication
+      parameters:
+        - in: header
+          name: Cookie
+          required: true
+          schema:
+            type: string
+          description: HTTP cookies containing temp-session-token
+      responses:
+        '200':
+          description: Claim token retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  claimToken:
+                    type: string
+                    description: Original claim token
+                  claimUrl:
+                    type: string
+                    description: URL to claim account
+                    example: /auth/claim?token=abc123...
+        '400':
+          description: Session token required or no valid claim token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    enum:
+                      - Session token required
+                      - No valid claim token available
+        '404':
+          description: Invalid or expired session
+        '500':
+          description: Internal server error
+  /api/auth/link-login:
+    get:
+      summary: Login via invitation link
+      description: Process login via invitation link and redirect to appropriate page
+      tags:
+        - Authentication
+      parameters:
+        - in: query
+          name: token
+          required: true
+          schema:
+            type: string
+          description: Claim token from invitation link
+      responses:
+        '302':
+          description: Redirect to appropriate page
+          headers:
+            Location:
+              description: Redirect URL
+              schema:
+                type: string
+                enum:
+                  - /auth/claim?token={token}
+                  - /auth/signin?error=missing-token
+                  - /auth/signin?error=invalid-token
+                  - /auth/signin?error=server-error
+  /api/auth/logout-temp:
+    post:
+      summary: Logout from temporary session
+      description: Clear temporary session from database and remove session cookie
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+          headers:
+            Set-Cookie:
+              description: Expired session cookie
+              schema:
+                type: string
+        '500':
+          description: Logout failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Logout failed
+  /api/auth/register:
+    post:
+      summary: Register a new user account
+      description: Create a new user account with email, password, and optional
+        profile information
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  description: Full name of the user
+                  example: Andrzej Duda
+                email:
+                  type: string
+                  format: email
+                  description: Valid email address
+                  example: Andrzej.Duda@example.com
+                password:
+                  type: string
+                  minLength: 6
+                  description: Password (minimum 6 characters)
+                  example: securePassword123
+                phone:
+                  type: string
+                  description: Optional phone number
+                  example: +1-555-123-4567
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User created successfully
+                  user:
+                    $ref: '#/components/schemas/PublicUser'
+        '400':
+          description: Validation error or user already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    oneOf:
+                      - type: string
+                        example: User already exists
+                      - type: array
+                        description: Validation errors from Zod
+        '500':
+          description: Internal server error
+  /api/auth/session-check:
+    get:
+      summary: Check current authentication status
+      description:
+        Verify user authentication status using cookies (NextAuth or temp
+        session)
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Session check completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    oneOf:
+                      - $ref: '#/components/schemas/AuthSession'
+                      - type:
+                  authenticated:
+                    type: boolean
+                  error:
+                    type: string
+                    description: Error message if check failed
+        '500':
+          description: Session check failed
+    post:
+      summary: Check authentication with token
+      description:
+        Verify user authentication and optionally set session cookie from
+        request body token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: Session token from localStorage
+      responses:
+        '200':
+          description: Session check completed, cookie set if valid token provided
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    oneOf:
+                      - $ref: '#/components/schemas/AuthSession'
+                      - type:
+                  authenticated:
+                    type: boolean
+          headers:
+            Set-Cookie:
+              description: HTTP-only session cookie (if token valid)
+              schema:
+                type: string
+        '500':
+          description: Session check failed
+  /api/auth/validate-token:
+    get:
+      summary: Validate temporary session token
+      description:
+        Validate a temporary session token from cookies and return user
+        information
+      tags:
+        - Authentication
+      parameters:
+        - in: header
+          name: Cookie
+          required: true
+          schema:
+            type: string
+          description: HTTP cookies containing temp-session-token
+          example: temp-session-token=abc123...
+      responses:
+        '200':
+          description: Token validation result
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      valid:
+                        type: boolean
+                        example: true
+                      user:
+                        $ref: '#/components/schemas/PublicUser'
+                      expiresAt:
+                        type: string
+                        format: date-time
+                  - type: object
+                    properties:
+                      valid:
+                        type: boolean
+                        example: false
+        '500':
+          description: Token validation error
+  '/api/forms/{id}':
+    get:
+      summary: Get a specific form by ID
+      description: Retrieve a single dynamic form by its unique identifier
+      tags:
+        - Forms
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the form
+          example: clm123abc456
+      responses:
+        '200':
+          description: Form retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DynamicForm'
+        '404':
+          description: Form not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Form not found
+        '500':
+          description: Internal server error
+    put:
+      summary: Update an existing form
+      description: Update form description and structure with validation
+      tags:
+        - Forms
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the form to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                  description: Updated form description
+                formData:
+                  type: object
+                  description: Updated form structure
+      responses:
+        '200':
+          description: Form updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DynamicForm'
+        '400':
+          description: Invalid form structure
+        '404':
+          description: Form not found
+        '500':
+          description: Internal server error
+    delete:
+      summary: Delete a form
+      description: Permanently delete a dynamic form from the system
+      tags:
+        - Forms
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the form to delete
+      responses:
+        '200':
+          description: Form deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Form deleted successfully
+        '404':
+          description: Form not found
+        '500':
+          description: Failed to delete form
+  '/api/forms/{id}/submissions/{submissionId}/file':
+    get:
+      summary: Download uploaded file from submission
+      description: Download a specific file that was uploaded as part of a form
+        submission from S3 storage
+      tags:
+        - Submissions
+        - Files
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Form ID
+        - in: path
+          name: submissionId
+          required: true
+          schema:
+            type: string
+          description: Submission ID
+        - in: query
+          name: fieldName
+          required: true
+          schema:
+            type: string
+          description: Name of the file field (without file_ prefix)
+          example: cv
+      responses:
+        '200':
+          description: File downloaded successfully
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Type:
+              description: MIME type of the file
+              schema:
+                type: string
+            Content-Disposition:
+              description: Attachment filename
+              schema:
+                type: string
+        '400':
+          description: Missing or invalid parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    enum:
+                      - Field name is required
+        '404':
+          description: Submission or file not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    enum:
+                      - Submission not found
+                      - File not found for this field
+        '500':
+          description: File download error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: File download error
+  '/api/forms/{id}/submissions/{submissionId}':
+    get:
+      summary: Get a specific submission
+      description: Retrieve details of a single form submission by its ID
+      tags:
+        - Submissions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Form ID
+        - in: path
+          name: submissionId
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the submission
+      responses:
+        '200':
+          description: Submission retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormSubmission'
+        '404':
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Submission not found
+        '500':
+          description: Internal server error
+    put:
+      summary: Update a submission
+      description: Update an existing form submission with new data
+      tags:
+        - Submissions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Form ID
+        - in: path
+          name: submissionId
+          required: true
+          schema:
+            type: string
+          description: Submission ID to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Updated submission data
+      responses:
+        '200':
+          description: Submission updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormSubmission'
+        '400':
+          description: Failed to update submission
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Failed to update submission
+        '500':
+          description: Internal server error
+    delete:
+      summary: Delete a submission
+      description: Permanently delete a form submission
+      tags:
+        - Submissions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Form ID
+        - in: path
+          name: submissionId
+          required: true
+          schema:
+            type: string
+          description: Submission ID to delete
+      responses:
+        '200':
+          description: Submission deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Submission deleted
+        '404':
+          description: Submission not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Submission not found
+        '500':
+          description: Internal server error
+  '/api/forms/{id}/submissions':
+    post:
+      summary: Submit form with files
+      description:
+        Submit a completed form with optional file uploads. Supports both
+        authenticated users and temporary sessions.
+      tags:
+        - Submissions
+      security:
+        - SessionAuth: []
+        - TempSessionAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Form ID to submit to
+          example: clm123abc456
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - formId
+                - answers
+              properties:
+                formId:
+                  type: string
+                  description: ID of the form being submitted
+                answers:
+                  type: string
+                  description: JSON string containing form field answers
+                  example: '{"name":"Andrzej Duda","email":"Andrzej@example.com"}'
+                file_cv:
+                  type: string
+                  format: binary
+                  description: CV file upload (optional)
+                file_certificate:
+                  type: string
+                  format: binary
+                  description: Certificate file upload (optional)
+              additionalProperties:
+                type: string
+                format: binary
+                description: Additional file uploads with file_ prefix
+      responses:
+        '201':
+          description: Form submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FormSubmission'
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    enum:
+                      - Missing formId or answers
+                      - Invalid answers JSON
+        '401':
+          description: User not authenticated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: User not authenticated
+        '404':
+          description: Form not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Form not found
+        '500':
+          description: Internal server error
+    get:
+      summary: Get form submissions
+      description:
+        Retrieve all submissions for a specific form, ordered by creation
+        date (newest first)
+      tags:
+        - Submissions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Form ID to get submissions for
+      responses:
+        '200':
+          description: List of submissions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FormSubmission'
+        '500':
+          description: Internal server error
+  /api/forms:
+    get:
+      summary: Get all dynamic forms
+      description: Retrieve a list of all available dynamic forms in the system
+      tags:
+        - Forms
+      responses:
+        '200':
+          description: List of dynamic forms retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DynamicForm'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+    post:
+      summary: Create a new dynamic form
+      description: Create a new dynamic form with validation of form structure
+      tags:
+        - Forms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - description
+                - formData
+              properties:
+                description:
+                  type: string
+                  description: Human-readable description of the form
+                  example: Contact Form
+                formData:
+                  type: object
+                  description: JSON schema defining form structure and fields
+      responses:
+        '201':
+          description: Form created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DynamicForm'
+        '400':
+          description: Invalid form structure or validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                  details:
+                    type: object
+        '500':
+          description: Internal server error
+  /api/forms/search:
+    get:
+      summary: Search forms by description
+      description: Search for forms using case-insensitive text matching on form
+        descriptions
+      tags:
+        - Forms
+      parameters:
+        - in: query
+          name: description
+          required: true
+          schema:
+            type: string
+          description: Search term to match against form descriptions
+          example: contact
+      responses:
+        '200':
+          description: Search completed successfully
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      results:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/DynamicForm'
+                      count:
+                        type: integer
+                        description: Number of forms found
+                      searchTerm:
+                        type: string
+                        description: The search term used
+                  - type: object
+                    properties:
+                      message:
+                        type: string
+                        example: No results found.
+        '400':
+          description: Missing or invalid search parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Description parameter is required
+                  message:
+                    type: string
+        '500':
+          description: Search operation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Search failed.
+  /api/service/invites:
+    post:
+      summary: Send user invitation (Service API)
+      description: Create user invitation with claim token. Requires invite:send scope.
+      tags:
+        - Service API
+        - Invitations
+      security:
+        - ServiceAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - name
+              properties:
+                email:
+                  type: string
+                  format: email
+                name:
+                  type: string
+                  minLength: 1
+                role:
+                  type: string
+                  enum:
+                    - USER
+                    - ADMIN
+                  default: USER
+                expiresInHours:
+                  type: integer
+                  minimum: 1
+                  maximum: 168
+                  default: 24
+                  description: Invitation expiration in hours (max 1 week)
+      responses:
+        '201':
+          description: User invitation created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/PublicUser'
+                  invitation:
+                    type: object
+                    properties:
+                      claimToken:
+                        type: string
+                      claimUrl:
+                        type: string
+                      expiresAt:
+                        type: string
+                        format: date-time
+                  meta:
+                    $ref: '#/components/schemas/ServiceMeta'
+        '400':
+          description: Invalid request data
+        '401':
+          description: Invalid service token
+        '403':
+          description: Insufficient permissions
+        '409':
+          description: User already exists
+        '500':
+          description: Internal server error
+    get:
+      summary: Get invitation status (Service API)
+      description: Check invitation status by email or token. Requires invite:send scope.
+      tags:
+        - Service API
+        - Invitations
+      security:
+        - ServiceAuth: []
+      parameters:
+        - in: query
+          name: email
+          schema:
+            type: string
+            format: email
+          description: User email to check
+        - in: query
+          name: token
+          schema:
+            type: string
+          description: Claim token to check
+      responses:
+        '200':
+          description: Invitation status retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/PublicUser'
+                  invitation:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum:
+                          - claimed
+                          - expired
+                          - pending
+                      expiresAt:
+                        type: string
+                        format: date-time
+                      isExpired:
+                        type: boolean
+                      isClaimed:
+                        type: boolean
+                  meta:
+                    $ref: '#/components/schemas/ServiceMeta'
+        '400':
+          description: Email or token parameter required
+        '401':
+          description: Invalid service token
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Invitation not found
+        '500':
+          description: Internal server error
+  /api/service/secure/users:
+    get:
+      summary: Get users with enhanced authentication
+      description: Retrieve users using enhanced authentication (JWT + client
+        verification). Requires user:read scope and enhanced auth headers.
+      tags:
+        - Service API
+        - Enhanced Security
+      security:
+        - ServiceAuth: []
+        - EnhancedAuth: []
+      parameters:
+        - in: header
+          name: X-Client-ID
+          required: true
+          schema:
+            type: string
+          description: Client identifier for enhanced auth
+        - in: header
+          name: X-Auth-Timestamp
+          required: true
+          schema:
+            type: string
+          description: Unix timestamp for request
+        - in: header
+          name: X-Auth-Nonce
+          required: true
+          schema:
+            type: string
+          description: Unique nonce for request
+        - in: header
+          name: X-Auth-Hash
+          required: true
+          schema:
+            type: string
+          description: Request signature hash
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+        - in: query
+          name: email
+          schema:
+            type: string
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum:
+              - USER
+              - ADMIN
+      responses:
+        '200':
+          description: Users retrieved with enhanced security
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/ServiceMeta'
+                      - type: object
+                        properties:
+                          clientId:
+                            type: string
+                          authMethod:
+                            type: string
+                            example: enhanced
+        '400':
+          description: Invalid query parameters
+        '401':
+          description: Invalid JWT token or enhanced authentication failed
+        '403':
+          description: Insufficient JWT or client permissions
+        '500':
+          description: Internal server error
+    post:
+      summary: Create user with enhanced authentication
+      description:
+        Create user using enhanced authentication. Requires user:create
+        scope and enhanced auth headers.
+      tags:
+        - Service API
+        - Enhanced Security
+      security:
+        - ServiceAuth: []
+        - EnhancedAuth: []
+      parameters:
+        - in: header
+          name: X-Client-ID
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Auth-Timestamp
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Auth-Nonce
+          required: true
+          schema:
+            type: string
+        - in: header
+          name: X-Auth-Hash
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                role:
+                  type: string
+                  enum:
+                    - USER
+                    - ADMIN
+                  default: USER
+      responses:
+        '201':
+          description: User created with enhanced security
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  meta:
+                    allOf:
+                      - $ref: '#/components/schemas/ServiceMeta'
+                      - type: object
+                        properties:
+                          clientId:
+                            type: string
+                          authMethod:
+                            type: string
+                            example: enhanced
+        '400':
+          description: Invalid request data
+        '401':
+          description: Invalid JWT token or enhanced authentication failed
+        '403':
+          description: Insufficient JWT or client permissions
+        '409':
+          description: User already exists
+        '500':
+          description: Internal server error
+  /api/service/sessions:
+    post:
+      summary: Create temporary session (Service API)
+      description: Create a temporary session for a user. Requires session:create scope.
+      tags:
+        - Service API
+        - Sessions
+      security:
+        - ServiceAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - userId
+              properties:
+                userId:
+                  type: integer
+                  description: ID of user to create session for
+                expiresInHours:
+                  type: integer
+                  minimum: 1
+                  maximum: 24
+                  default: 1
+                  description: Session duration in hours
+      responses:
+        '201':
+          description: Temporary session created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      token:
+                        type: string
+                        description: Session token for authentication
+                      expiresAt:
+                        type: string
+                        format: date-time
+                      createdAt:
+                        type: string
+                        format: date-time
+                  user:
+                    $ref: '#/components/schemas/User'
+                  meta:
+                    $ref: '#/components/schemas/ServiceMeta'
+        '400':
+          description: Invalid request data
+        '401':
+          description: Invalid service token
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: User not found
+        '500':
+          description: Internal server error
+    get:
+      summary: Validate temporary session (Service API)
+      description: Validate and retrieve temporary session information. Requires
+        session:create scope.
+      tags:
+        - Service API
+        - Sessions
+      security:
+        - ServiceAuth: []
+      parameters:
+        - in: query
+          name: token
+          schema:
+            type: string
+          description: Session token to validate
+        - in: query
+          name: userId
+          schema:
+            type: string
+          description: User ID to find sessions for
+      responses:
+        '200':
+          description: Session information retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      token:
+                        type: string
+                      expiresAt:
+                        type: string
+                        format: date-time
+                      createdAt:
+                        type: string
+                        format: date-time
+                      isExpired:
+                        type: boolean
+                      isValid:
+                        type: boolean
+                  user:
+                    $ref: '#/components/schemas/User'
+                  meta:
+                    $ref: '#/components/schemas/ServiceMeta'
+        '400':
+          description: Either token or userId parameter required
+        '401':
+          description: Invalid service token
+        '403':
+          description: Insufficient permissions
+        '404':
+          description: Session not found
+        '500':
+          description: Internal server error
+  /api/service/users:
+    get:
+      summary: Get users (Service API)
+      description:
+        Retrieve paginated list of users with filtering. Requires user:read
+        scope.
+      tags:
+        - Service API
+        - Users
+      security:
+        - ServiceAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Items per page
+        - in: query
+          name: email
+          schema:
+            type: string
+          description: Filter by email (case-insensitive contains)
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum:
+              - USER
+              - ADMIN
+          description: Filter by user role
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/User'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                  meta:
+                    $ref: '#/components/schemas/ServiceMeta'
+        '400':
+          description: Invalid query parameters
+        '401':
+          description: Invalid service token
+        '403':
+          description: Insufficient permissions
+        '500':
+          description: Internal server error
+    post:
+      summary: Create user (Service API)
+      description: Create a new user account. Requires user:create scope.
+      tags:
+        - Service API
+        - Users
+      security:
+        - ServiceAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                role:
+                  type: string
+                  enum:
+                    - USER
+                    - ADMIN
+                  default: USER
+      responses:
+        '201':
+          description: User created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  meta:
+                    $ref: '#/components/schemas/ServiceMeta'
+        '400':
+          description: Invalid request data
+        '401':
+          description: Invalid service token
+        '403':
+          description: Insufficient permissions
+        '409':
+          description: User already exists
+        '500':
+          description: Internal server error
+  '/api/users/{id}':
+    get:
+      summary: Get user by ID
+      description:
+        Retrieve user information. Users can only access their own data,
+        admins can access any user's data.
+      tags:
+        - Users
+      security:
+        - SessionAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: User ID
+          example: 123
+      responses:
+        '200':
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized - no valid session
+        '403':
+          description: Forbidden - user can only access their own data
+        '404':
+          description: User not found
+        '500':
+          description: Internal server error
+    put:
+      summary: Update user information
+      description:
+        Update user profile. Users can update their own data, admins can
+        update any user. Only admins can change roles.
+      tags:
+        - Users
+      security:
+        - SessionAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: User ID to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  description: Updated user name
+                email:
+                  type: string
+                  format: email
+                  description: Updated email address
+                phone:
+                  type: string
+                  description: Updated phone number
+                role:
+                  type: string
+                  enum:
+                    - USER
+                    - ADMIN
+                  description: Updated role (admin only)
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error or email already taken
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - insufficient permissions
+        '500':
+          description: Internal server error
+    delete:
+      summary: Delete user account
+      description:
+        Permanently delete a user account. Only admins can delete users.
+        Admins cannot delete themselves.
+      tags:
+        - Users
+      security:
+        - SessionAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: User ID to delete
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: User deleted successfully
+        '400':
+          description: Cannot delete own account
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - admin access required
+        '500':
+          description: Internal server error
+tags: []
