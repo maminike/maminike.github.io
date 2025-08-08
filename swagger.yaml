@@ -5,7 +5,7 @@ info:
   description: API documentation for Practice Flow Portal
 servers:
   - url: https://maminike.github.io/
-    description: Production server
+    description: Doc page
 components:
   securitySchemes:
     SessionAuth:
