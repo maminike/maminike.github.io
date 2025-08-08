@@ -59,7 +59,42 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/FormSubmission'
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          description: Current page number
+          example: 1
+        limit:
+          type: integer
+          description: Items per page
+          example: 10
+        total:
+          type: integer
+          description: Total number of items
+          example: 156
+        pages:
+          type: integer
+          description: Total number of pages
+          example: 16
+      required:
+        - page
+        - limit
+        - total
+        - pages
 
+    ServiceMeta:
+      type: object
+      properties:
+        requestedBy:
+          type: string
+          description: JWT issuer identifier
+          example: postman-test
+        timestamp:
+          type: string
+          format: date-time
+          description: Response timestamp
     Account:
       type: object
       properties:
