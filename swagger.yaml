@@ -311,12 +311,12 @@ paths:
                 name:
                   type: string
                   description: Optional user name
-                  example: John Doe
+                  example: Andrzej Duda
                 email:
                   type: string
                   format: email
                   description: User email address
-                  example: john.doe@example.com
+                  example: andrzej.duda@example.com
                 role:
                   type: string
                   enum:
@@ -358,8 +358,24 @@ paths:
                 properties:
                   error:
                     type: string
+                    example: 'Validation failed: [...]'
                   details:
                     type: array
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: invalid_string
+                        path:
+                          type: array
+                          items:
+                            type: string
+                          example:
+                            - email
+                        message:
+                          type: string
+                          example: Valid email is required
         '403':
           description: Unauthorized - admin access required
         '500':
@@ -478,6 +494,21 @@ paths:
                     example: Invalid or expired claim token
                   details:
                     type: array
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          example: too_small
+                        path:
+                          type: array
+                          items:
+                            type: string
+                          example:
+                            - password
+                        message:
+                          type: string
+                          example: Password must be at least 6 characters
                     description: Validation errors (if applicable)
         '500':
           description: Internal server error
@@ -713,12 +744,12 @@ paths:
                   type: string
                   minLength: 1
                   description: Full name of the user
-                  example: John Doe
+                  example: Andrzej Duda
                 email:
                   type: string
                   format: email
                   description: Valid email address
-                  example: john.doe@example.com
+                  example: andrzej.duda@example.com
                 password:
                   type: string
                   minLength: 6
@@ -753,6 +784,21 @@ paths:
                       - type: string
                         example: User already exists
                       - type: array
+                        items:
+                          type: object
+                          properties:
+                            code:
+                              type: string
+                              example: too_small
+                            path:
+                              type: array
+                              items:
+                                type: string
+                              example:
+                                - password
+                            message:
+                              type: string
+                              example: Password must be at least 6 characters
                         description: Validation errors from Zod
         '500':
           description: Internal server error
@@ -1195,7 +1241,7 @@ paths:
                 answers:
                   type: string
                   description: JSON string containing form field answers
-                  example: '{"name":"John Doe","email":"john@example.com"}'
+                  example: '{"name":"Andrzej Duda","email":"andrzej.duda@example.com"}'
                 file_cv:
                   type: string
                   format: binary
