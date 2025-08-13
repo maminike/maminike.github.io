@@ -205,6 +205,40 @@ components:
           format: date-time
         user:
           type: string
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        perPage:
+          type: integer
+          example: 10
+        totalPages:
+          type: integer
+          example: 5
+        totalItems:
+          type: integer
+          example: 50
+      required:
+        - page
+        - perPage
+        - totalPages
+        - totalItems
+    Meta:
+      type: object
+      properties:
+        createdAt:
+          type: string
+          format: date-time
+          example: 2025-08-13T12:00:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2025-08-13T12:00:00Z
+      required:
+        - createdAt
+        - updatedAt
 paths:
   /api/admin/invite:
     post:
