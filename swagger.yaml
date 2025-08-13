@@ -820,51 +820,32 @@ paths:
                 properties:
                   session:
                     oneOf:
-                      - $ref: '#/components/schemas/AuthSession'
-                      - type:
+                      - type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/User'
+                          authType:
+                            type: string
+                            enum:
+                              - credentials
+                              - token
+                          status:
+                            type: string
+                            enum:
+                              - authenticated
+                              - authenticated_admin
+                              - authenticated_temporary
+                          isTemporary:
+                            type: boolean
+                          expiresAt:
+                            type: string
+                            format: date-time
+                      - type: 'null'
                   authenticated:
                     type: boolean
                   error:
                     type: string
                     description: Error message if check failed
-        '500':
-          description: Session check failed
-    post:
-      summary: Check authentication with token
-      description:
-        Verify user authentication and optionally set session cookie from
-        request body token
-      tags:
-        - Authentication
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                token:
-                  type: string
-                  description: Session token from localStorage
-      responses:
-        '200':
-          description: Session check completed, cookie set if valid token provided
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  session:
-                    oneOf:
-                      - $ref: '#/components/schemas/AuthSession'
-                      - type:
-                  authenticated:
-                    type: boolean
-          headers:
-            Set-Cookie:
-              description: HTTP-only session cookie (if token valid)
-              schema:
-                type: string
         '500':
           description: Session check failed
   /api/auth/validate-token:
