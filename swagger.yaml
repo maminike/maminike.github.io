@@ -225,7 +225,7 @@ components:
         - perPage
         - totalPages
         - totalItems
-    Meta:
+    ServiceMeta:
       type: object
       properties:
         createdAt:
@@ -239,6 +239,55 @@ components:
       required:
         - createdAt
         - updatedAt
+    AuthSession:
+      type: object
+      properties:
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              example: '123'
+            email:
+              type: string
+              format: email
+              example: user@example.com
+            name:
+              type: string
+              example: John Doe
+            role:
+              type: string
+              example: USER
+          required:
+            - id
+            - email
+            - name
+            - role
+        authType:
+          type: string
+          enum:
+            - credentials
+            - token
+          example: credentials
+        status:
+          type: string
+          enum:
+            - authenticated
+            - authenticated_admin
+            - authenticated_temporary
+          example: authenticated
+        isTemporary:
+          type: boolean
+          example: false
+        expiresAt:
+          type: string
+          format: date-time
+          example: 2025-08-13T12:00:00Z
+      required:
+        - user
+        - authType
+        - status
+        - isTemporary
 paths:
   /api/admin/invite:
     post:
