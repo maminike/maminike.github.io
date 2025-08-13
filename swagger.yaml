@@ -225,7 +225,7 @@ components:
         - perPage
         - totalPages
         - totalItems
-    Meta:
+    ServiceMeta:
       type: object
       properties:
         createdAt:
