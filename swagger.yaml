@@ -4,8 +4,8 @@ info:
   version: 1.0.0
   description: API documentation for Practice Flow Portal
 servers:
-  - url: http://localhost:3000/
-    description: Local server
+  - url: https://localhost:3000/
+    description: Production server
 components:
   securitySchemes:
     SessionAuth:
@@ -13,17 +13,22 @@ components:
       in: cookie
       name: next-auth.session-token
   schemas:
+    UserRole:
+      type: string
+      enum:
+        - USER
+        - ADMIN
     User:
       type: object
       properties:
         id:
           type: integer
+          format: int32
         name:
           type: string
           nullable: true
         email:
           type: string
-          format: email
         phone:
           type: string
           nullable: true
@@ -32,7 +37,6 @@ components:
           nullable: true
         role:
           type: string
-          enum: [USER, ADMIN]
         emailVerified:
           type: string
           format: date-time
@@ -55,46 +59,16 @@ components:
           nullable: true
         isClaimed:
           type: boolean
+        accounts:
+          type: string
+        sessions:
+          type: string
+        tempSessions:
+          type: string
         submissions:
-          type: array
-          items:
-            $ref: '#/components/schemas/FormSubmission'
-    Pagination:
-      type: object
-      properties:
-        page:
-          type: integer
-          description: Current page number
-          example: 1
-        limit:
-          type: integer
-          description: Items per page
-          example: 10
-        total:
-          type: integer
-          description: Total number of items
-          example: 156
-        pages:
-          type: integer
-          description: Total number of pages
-          example: 16
-      required:
-        - page
-        - limit
-        - total
-        - pages
-
-    ServiceMeta:
-      type: object
-      properties:
-        requestedBy:
           type: string
-          description: JWT issuer identifier
-          example: postman-test
-        timestamp:
+        requestedTasks:
           type: string
-          format: date-time
-          description: Response timestamp
     Account:
       type: object
       properties:
@@ -102,6 +76,7 @@ components:
           type: string
         userId:
           type: integer
+          format: int32
         type:
           type: string
         provider:
@@ -116,6 +91,7 @@ components:
           nullable: true
         expires_at:
           type: integer
+          format: int32
           nullable: true
         token_type:
           type: string
@@ -129,49 +105,41 @@ components:
         session_state:
           type: string
           nullable: true
-
+        user:
+          type: string
     DynamicForm:
       type: object
       properties:
         id:
           type: string
-          format: uuid
         description:
           type: string
         formData:
           type: object
-          description: JSON structure describing form fields
-          additionalProperties: true
         createdAt:
           type: string
           format: date-time
         submissions:
-          type: array
-          items:
-            $ref: '#/components/schemas/FormSubmission'
-
+          type: string
     FormSubmission:
       type: object
       properties:
         id:
           type: string
-          format: uuid
         formId:
           type: string
-          format: uuid
         userId:
           type: integer
+          format: int32
         data:
           type: object
-          additionalProperties: true
         createdAt:
           type: string
           format: date-time
         form:
-          $ref: '#/components/schemas/DynamicForm'
+          type: string
         user:
-          $ref: '#/components/schemas/User'
-
+          type: string
     Session:
       type: object
       properties:
@@ -181,10 +149,12 @@ components:
           type: string
         userId:
           type: integer
+          format: int32
         expires:
           type: string
           format: date-time
-
+        user:
+          type: string
     VerificationToken:
       type: object
       properties:
@@ -195,33 +165,36 @@ components:
         expires:
           type: string
           format: date-time
-
     TempSession:
       type: object
       properties:
         id:
           type: integer
+          format: int32
         token:
           type: string
         userId:
           type: integer
+          format: int32
         expiresAt:
           type: string
           format: date-time
         createdAt:
           type: string
           format: date-time
-
+        user:
+          type: string
     RequestedTask:
       type: object
       properties:
         id:
           type: integer
+          format: int32
         userId:
           type: integer
+          format: int32
         status:
           type: string
-          example: 'pending'
         taskPath:
           type: string
         createdAt:
@@ -230,6 +203,8 @@ components:
         updatedAt:
           type: string
           format: date-time
+        user:
+          type: string
 paths:
   /api/admin/invite:
     post:
@@ -253,12 +228,12 @@ paths:
                 name:
                   type: string
                   description: Optional user name
-                  example: Andrzej Duda
+                  example: John Doe
                 email:
                   type: string
                   format: email
                   description: User email address
-                  example: Andrzej.Duda@example.com
+                  example: john.doe@example.com
                 role:
                   type: string
                   enum:
@@ -655,12 +630,12 @@ paths:
                   type: string
                   minLength: 1
                   description: Full name of the user
-                  example: Andrzej Duda
+                  example: John Doe
                 email:
                   type: string
                   format: email
                   description: Valid email address
-                  example: Andrzej.Duda@example.com
+                  example: john.doe@example.com
                 password:
                   type: string
                   minLength: 6
@@ -1137,7 +1112,7 @@ paths:
                 answers:
                   type: string
                   description: JSON string containing form field answers
-                  example: '{"name":"Andrzej Duda","email":"Andrzej@example.com"}'
+                  example: '{"name":"John Doe","email":"john@example.com"}'
                 file_cv:
                   type: string
                   format: binary
@@ -2016,3 +1991,4 @@ paths:
           description: Forbidden - admin access required
         '500':
           description: Internal server error
+tags: []
